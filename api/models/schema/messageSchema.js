@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const mongoMeili = require('~/models/plugins/mongoMeili');
+const { knowledgeNodeSchema } = require('./kgraphSchema');
 const messageSchema = mongoose.Schema(
   {
     messageId: {
@@ -53,6 +54,22 @@ const messageSchema = mongoose.Schema(
     text: {
       type: String,
       meiliIndex: true,
+    },
+    nodes: [
+      new mongoose.Schema(
+        {
+          ...knowledgeNodeSchema.obj,
+          isCurated: {
+            type: Boolean,
+            default: false,
+          },
+        },
+        { _id: true, timestamps: true }
+      ),
+    ],
+    isImported: {
+      type: Boolean,
+      default: false,
     },
     summary: {
       type: String,

@@ -107,3 +107,12 @@ uploads/
 # owner
 release/
 librechat.yaml.최신
+
+
+# Python cache and bytecode
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyc
+.pytest_cache/
+__pypackages__/

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { MessageSquareQuote, ArrowRightToLine, Settings2, Bookmark } from 'lucide-react';
+import { MessageSquareQuote, ArrowRightToLine, Settings2, Bookmark, GitBranch } from 'lucide-react';
 import {
   isAssistantsEndpoint,
   isAgentsEndpoint,
@@ -18,6 +18,7 @@ import Parameters from '~/components/SidePanel/Parameters/Panel';
 import FilesPanel from '~/components/SidePanel/Files/Panel';
 import { Blocks, AttachmentIcon } from '~/components/svg';
 import { useHasAccess } from '~/hooks';
+import GraphPanel from '~/components/Knowledge/GraphPanel';
 
 export default function useSideNavLinks({
   hidePanel,
@@ -46,90 +47,17 @@ export default function useSideNavLinks({
   });
 
   const Links = useMemo(() => {
-    const links: NavLink[] = [];
-    if (
-      isAssistantsEndpoint(endpoint) &&
-      assistants &&
-      assistants.disableBuilder !== true &&
-      keyProvided &&
-      interfaceConfig.parameters === true
-    ) {
-      links.push({
-        title: 'com_sidepanel_assistant_builder',
+    // Show only Knowledge Graph in the right panel
+    const graphOnly: NavLink[] = [
+      {
+        title: 'com_sidepanel_knowledge_graph',
         label: '',
-        icon: Blocks,
-        id: 'assistants',
-        Component: PanelSwitch,
-      });
-    }
-
-    if (
-      isAgentsEndpoint(endpoint) &&
-      agents &&
-      // agents.disableBuilder !== true &&
-      keyProvided &&
-      interfaceConfig.parameters === true
-    ) {
-      links.push({
-        title: 'com_sidepanel_agent_builder',
-        label: '',
-        icon: Blocks,
-        id: 'agents',
-        Component: AgentPanelSwitch,
-      });
-    }
-
-    if (hasAccessToPrompts) {
-      links.push({
-        title: 'com_ui_prompts',
-        label: '',
-        icon: MessageSquareQuote,
-        id: 'prompts',
-        Component: PromptsAccordion,
-      });
-    }
-
-    if (
-      interfaceConfig.parameters === true &&
-      isParamEndpoint(endpoint ?? '', endpointType ?? '') === true &&
-      keyProvided
-    ) {
-      links.push({
-        title: 'com_sidepanel_parameters',
-        label: '',
-        icon: Settings2,
-        id: 'parameters',
-        Component: Parameters,
-      });
-    }
-
-    links.push({
-      title: 'com_sidepanel_attach_files',
-      label: '',
-      icon: AttachmentIcon,
-      id: 'files',
-      Component: FilesPanel,
-    });
-
-    if (hasAccessToBookmarks) {
-      links.push({
-        title: 'com_sidepanel_conversation_tags',
-        label: '',
-        icon: Bookmark,
-        id: 'bookmarks',
-        Component: BookmarkPanel,
-      });
-    }
-
-    links.push({
-      title: 'com_sidepanel_hide_panel',
-      label: '',
-      icon: ArrowRightToLine,
-      onClick: hidePanel,
-      id: 'hide-panel',
-    });
-
-    return links;
+        icon: GitBranch,
+        id: 'knowledge-graph',
+        Component: GraphPanel,
+      },
+    ];
+    return graphOnly;
   }, [
     interfaceConfig.parameters,
     keyProvided,

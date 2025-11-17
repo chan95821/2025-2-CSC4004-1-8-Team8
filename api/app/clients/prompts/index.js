@@ -7,6 +7,7 @@ const titlePrompts = require('./titlePrompts');
 const truncateText = require('./truncateText');
 const createVisionPrompt = require('./createVisionPrompt');
 const createContextHandlers = require('./createContextHandlers');
+const jsonSchemas = require('./jsonSchemas');
 
 module.exports = {
   addCacheControl,
@@ -18,4 +19,5 @@ module.exports = {
   ...truncateText,
   createVisionPrompt,
   createContextHandlers,
+  ...jsonSchemas,
 };

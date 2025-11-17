@@ -107,6 +107,11 @@ export default function useSSE(
         console.error(error);
       }
     };
+    /**
+     * Note: Atomic ideas are now extracted from responseMessage in finalHandler
+     * This handler is kept for backward compatibility but not actively used
+     */
+    // events.onatomic_ideas = (e: MessageEvent) => { ... }
 
     events.onmessage = (e: MessageEvent) => {
       const data = JSON.parse(e.data);

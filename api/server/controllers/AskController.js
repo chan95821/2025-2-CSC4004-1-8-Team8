@@ -141,20 +141,27 @@ const AskController = async (req, res, next, initializeClient, addTitle) => {
     }
 
     if (!abortController.signal.aborted) {
+      // Save to DB and get the saved message with nodes (including _id)
+      const savedMessage = await saveMessage(
+        req,
+        { ...response, user },
+        { context: 'api/server/controllers/AskController.js - response end' },
+      );
+
+      // Send final response with messageId and nodes from saved message
       sendMessage(res, {
         final: true,
         conversation,
         title: conversation.title,
         requestMessage: userMessage,
-        responseMessage: response,
+        responseMessage: {
+          ...response,
+          messageId: savedMessage?.messageId || responseMessageId,
+          nodes: savedMessage?.nodes || [],
+        },
       });
-      res.end();
 
-      await saveMessage(
-        req,
-        { ...response, user },
-        { context: 'api/server/controllers/AskController.js - response end' },
-      );
+      res.end();
     }
 
     if (!client.skipSaveUserMessage) {

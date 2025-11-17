@@ -7,6 +7,7 @@ import { useDragHelpers, useSetFilesToDelete } from '~/hooks';
 import DragDropOverlay from './Input/Files/DragDropOverlay';
 import { useDeleteFilesMutation } from '~/data-provider';
 import Artifacts from '~/components/Artifacts/Artifacts';
+import CandidatesPanel from '~/components/Knowledge/CandidatesPanel';
 import { SidePanel } from '~/components/SidePanel';
 import store from '~/store';
 
@@ -98,11 +99,14 @@ export default function Presentation({
           defaultCollapsed={defaultCollapsed}
           fullPanelCollapse={fullCollapse}
           artifacts={
-            artifactsVisible === true &&
-            codeArtifacts === true &&
-            Object.keys(artifacts ?? {}).length > 0 ? (
-                <Artifacts />
-              ) : null
+            // Default ON unless explicitly disabled in config
+            (interfaceConfig as any)?.candidatePanel !== false ? (
+              <CandidatesPanel />
+            ) : artifactsVisible === true &&
+              codeArtifacts === true &&
+              Object.keys(artifacts ?? {}).length > 0 ? (
+              <Artifacts />
+            ) : null
           }
         >
           <main className="flex h-full flex-col" role="main">

@@ -27,6 +27,7 @@ const {
   CUT_OFF_PROMPT,
   titleInstruction,
   createContextHandlers,
+  atomicIdeasJsonSchema,
 } = require('./prompts');
 const { encodeAndFormat } = require('~/server/services/Files/images/encode');
 const { spendTokens } = require('~/models/spendTokens');
@@ -95,6 +96,7 @@ class OpenAIClient extends BaseClient {
     this.modelOptions = Object.assign(
       {
         model: openAISettings.model.default,
+        response_format: atomicIdeasJsonSchema,
       },
       this.modelOptions,
       this.options.modelOptions,
@@ -383,14 +385,67 @@ class OpenAIClient extends BaseClient {
    * @returns {number} The token count of the given text.
    */
   getTokenCount(text) {
+    // Validate input - prevent WASM out of bounds errors
+    if (!text || typeof text !== 'string') {
+      logger.warn('[OpenAIClient] getTokenCount: Invalid text input', {
+        type: typeof text,
+        isNull: text === null,
+        isUndefined: text === undefined,
+      });
+      return 0;
+    }
+
+    // Prevent extremely large text that could cause WASM buffer issues
+    const MAX_TEXT_LENGTH = 1000000; // 1MB of text
+    if (text.length > MAX_TEXT_LENGTH) {
+      logger.warn('[OpenAIClient] getTokenCount: Text exceeds max length', {
+        length: text.length,
+        maxLength: MAX_TEXT_LENGTH,
+      });
+      // Rough estimation: ~4 characters per token
+      return Math.ceil(text.length / 4);
+    }
+
     this.resetTokenizersIfNecessary();
     try {
       const tokenizer = this.selectTokenizer();
-      return tokenizer.encode(text, 'all').length;
+      if (!tokenizer) {
+        logger.error('[OpenAIClient] getTokenCount: Failed to get tokenizer');
+        return 0;
+      }
+
+      const encoded = tokenizer.encode(text, 'all');
+      return Array.isArray(encoded) ? encoded.length : 0;
     } catch (error) {
-      this.constructor.freeAndResetAllEncoders();
-      const tokenizer = this.selectTokenizer();
-      return tokenizer.encode(text, 'all').length;
+      logger.error('[OpenAIClient] getTokenCount: WASM encode error on first attempt', {
+        errorMessage: error?.message,
+        errorType: error?.name,
+        textLength: text.length,
+      });
+
+      try {
+        // Reset and retry once
+        this.constructor.freeAndResetAllEncoders();
+        const tokenizer = this.selectTokenizer();
+
+        if (!tokenizer) {
+          logger.error('[OpenAIClient] getTokenCount: Failed to get tokenizer after reset');
+          return 0;
+        }
+
+        const encoded = tokenizer.encode(text, 'all');
+        return Array.isArray(encoded) ? encoded.length : 0;
+      } catch (retryError) {
+        logger.error('[OpenAIClient] getTokenCount: WASM encode error on retry', {
+          errorMessage: retryError?.message,
+          errorType: retryError?.name,
+          textLength: text.length,
+        });
+
+        // Fallback: rough estimation
+        logger.warn('[OpenAIClient] getTokenCount: Using fallback estimation');
+        return Math.ceil(text.length / 4);
+      }
     }
   }
 
@@ -549,6 +604,7 @@ class OpenAIClient extends BaseClient {
       promptPrefix = this.augmentedPrompt + promptPrefix;
     }
 
+    // Build system instructions
     if (promptPrefix && this.isO1Model !== true) {
       promptPrefix = `Instructions:\n${promptPrefix.trim()}`;
       instructions = {
@@ -562,6 +618,19 @@ class OpenAIClient extends BaseClient {
       }
     }
 
+    // Add structured output instructions for JSON formatting
+    const structuredOutputInstruction = {
+      role: 'system',
+      name: 'json_format_instruction',
+      content: `당신은 항상 JSON 형식으로 응답해야 합니다.
+
+응답 구조:
+1. "response": 사용자의 질문에 대한 완전하고 상세한 답변. 모든 정보를 포함하며, 이 필드만으로도 질문에 충분히 답할 수 있어야 합니다.
+2. "atomic_ideas": response에서 추출한 핵심 개념들. 각각 독립적이고 재사용 가능한 단일 개념이어야 합니다.
+
+중요: response 필드가 먼저 완전한 답변을 제공해야 하고, atomic_ideas는 그 답변의 핵심 포인트들을 정리한 것입니다.`,
+    };
+
     // TODO: need to handle interleaving instructions better
     if (this.contextStrategy) {
       ({ payload, tokenCountMap, promptTokens, messages } = await this.handleContextStrategy({
@@ -571,19 +640,32 @@ class OpenAIClient extends BaseClient {
       }));
     }
 
+    // Ensure structured output instruction is added
+    if (!payload) {
+      payload = formattedMessages;
+    }
+
+    // Add instructions in order: system message, json format instruction, then user messages
+    const finalPayload = [];
+    if (instructions) {
+      finalPayload.push(instructions);
+    }
+    finalPayload.push(structuredOutputInstruction);
+    finalPayload.push(...(Array.isArray(payload) ? payload : [payload]));
+
     const result = {
-      prompt: payload,
+      prompt: finalPayload,
       promptTokens,
       messages,
     };
 
     /** EXPERIMENTAL */
     if (promptPrefix && this.isO1Model === true) {
-      const lastUserMessageIndex = payload.findLastIndex((message) => message.role === 'user');
+      const lastUserMessageIndex = finalPayload.findLastIndex((message) => message.role === 'user');
       if (lastUserMessageIndex !== -1) {
-        payload[
+        finalPayload[
           lastUserMessageIndex
-        ].content = `${promptPrefix}\n${payload[lastUserMessageIndex].content}`;
+        ].content = `${promptPrefix}\n${finalPayload[lastUserMessageIndex].content}`;
       }
     }
 
@@ -655,11 +737,23 @@ class OpenAIClient extends BaseClient {
         reply = completionResult.choices[0]?.text?.replace(this.endToken, '');
       }
     } else if (typeof opts.onProgress === 'function' || this.options.useChatCompletion) {
-      reply = await this.chatCompletion({
+      const chatResult = await this.chatCompletion({
         payload,
         onProgress: opts.onProgress,
         abortController: opts.abortController,
       });
+
+      // Handle both string and object returns from chatCompletion
+      if (typeof chatResult === 'object' && chatResult !== null) {
+        // Extract content and atomic_ideas if present
+        reply = chatResult.content || '';
+        if (chatResult.atomic_ideas) {
+          // Store atomic_ideas for potential use by caller
+          this.lastAtomicIdeas = chatResult.atomic_ideas;
+        }
+      } else {
+        reply = chatResult || '';
+      }
     } else {
       result = await this.getCompletion(
         payload,
@@ -685,6 +779,15 @@ class OpenAIClient extends BaseClient {
       const { finish_reason } = streamResult.choices[0];
       this.metadata = { finish_reason };
     }
+
+    // Return atomic_ideas if present, otherwise just return the string
+    if (this.lastAtomicIdeas && Array.isArray(this.lastAtomicIdeas)) {
+      return {
+        content: (reply ?? '').trim(),
+        atomic_ideas: this.lastAtomicIdeas,
+      };
+    }
+
     return (reply ?? '').trim();
   }
 
@@ -1221,9 +1324,9 @@ ${convo}
 
         opts.baseURL = this.langchainProxy
           ? constructAzureURL({
-            baseURL: this.langchainProxy,
-            azureOptions: this.azure,
-          })
+              baseURL: this.langchainProxy,
+              azureOptions: this.azure,
+            })
           : this.azureEndpoint.split(/(?<!\/)\/(chat|completion)\//)[0];
 
         opts.defaultQuery = { 'api-version': this.azure.azureOpenAIApiVersion };
@@ -1350,10 +1453,96 @@ ${convo}
             }
           });
 
+        // JSON 파싱 상태 추적
+        let jsonBuffer = '';
+        let responseStreamingStarted = false;
+        let inResponseField = false;
+        let braceDepth = 0;
+        let atomicIdeasParsed = null;
+
         for await (const chunk of stream) {
           const token = chunk.choices[0]?.delta?.content || '';
           intermediateReply.push(token);
-          onProgress(token);
+
+          // Structured Output JSON 파싱 (response와 atomic_ideas 구분)
+          if (
+            modelOptions.response_format?.type === 'json_schema' ||
+            modelOptions.response_format?.json_schema
+          ) {
+            jsonBuffer += token;
+
+            // response 필드 감지 및 스트리밍 시작
+            if (!responseStreamingStarted && jsonBuffer.includes('"response"')) {
+              responseStreamingStarted = true;
+              logger.debug('[OpenAIClient] Stream: response field detected');
+            }
+
+            // JSON 완성 감지 (닫는 중괄호 일치)
+            if (responseStreamingStarted && !atomicIdeasParsed) {
+              for (const char of token) {
+                if (char === '{') {
+                  braceDepth++;
+                }
+                if (char === '}') {
+                  braceDepth--;
+                }
+              }
+
+              // JSON 완성: 모든 중괄호가 닫혔을 때
+              if (braceDepth === 0 && jsonBuffer.includes('{') && jsonBuffer.includes('}')) {
+                try {
+                  const parsed = JSON.parse(jsonBuffer);
+                  if (parsed.atomic_ideas && Array.isArray(parsed.atomic_ideas)) {
+                    // Extract content from each atomic_idea object
+                    // Schema format: [{ content: "..." }, { content: "..." }]
+                    atomicIdeasParsed = parsed.atomic_ideas
+                      .filter((idea) => idea && idea.content)
+                      .map((idea) => idea.content);
+
+                    logger.debug('[OpenAIClient] Stream: atomic_ideas extracted', {
+                      count: atomicIdeasParsed.length,
+                      ideas: atomicIdeasParsed,
+                    });
+                    // 응답을 response 필드 내용으로 업데이트
+                    intermediateReply.length = 0;
+                    intermediateReply.push(parsed.response || '');
+                    // onProgress 콜백에 atomic_ideas 정보 전달
+                    if (typeof onProgress === 'function' && onProgress.__atomic_ideas_callback) {
+                      onProgress.__atomic_ideas_callback(atomicIdeasParsed);
+                    }
+                  }
+                } catch (err) {
+                  // JSON 파싱 실패, 계속 진행
+                  logger.debug(
+                    '[OpenAIClient] Stream: JSON parsing in progress or failed',
+                    err.message,
+                  );
+                }
+              }
+            }
+          }
+
+          // response 필드가 시작되었으면 streaming 시작 (response 스트림만)
+          if (responseStreamingStarted && inResponseField) {
+            onProgress(token);
+          } else if (responseStreamingStarted && jsonBuffer.includes('"response"')) {
+            // response 필드 내용 추출 및 스트리밍
+            const responseMatch = jsonBuffer.match(/"response"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/);
+            if (responseMatch) {
+              inResponseField = true;
+              // 이미 스트리밍된 부분 제외하고 새로운 토큰만 전송
+              if (!this.lastStreamedResponseLength) {
+                this.lastStreamedResponseLength = 0;
+              }
+              const currentResponse = responseMatch[1];
+              if (currentResponse.length > this.lastStreamedResponseLength) {
+                const newText = currentResponse.slice(this.lastStreamedResponseLength);
+                onProgress(newText);
+                this.lastStreamedResponseLength = currentResponse.length;
+              }
+            }
+          }
+
           if (abortController.signal.aborted) {
             stream.controller.abort();
             break;
@@ -1362,6 +1551,8 @@ ${convo}
           await sleep(streamRate);
         }
 
+        // 정리
+        delete this.lastStreamedResponseLength;
         streamResolve();
 
         if (!UnexpectedRoleError) {
@@ -1418,6 +1609,55 @@ ${convo}
         return reply;
       }
 
+      // Try to parse JSON response to extract atomic_ideas
+      let atomicIdeas = null;
+      try {
+        logger.debug('[OpenAIClient] Attempting to parse JSON response', {
+          contentLength: message.content.length,
+          preview: message.content.slice(0, 100),
+        });
+
+        const parsed = JSON.parse(message.content);
+
+        if (parsed.atomic_ideas && Array.isArray(parsed.atomic_ideas)) {
+          // Extract content from each atomic_idea object
+          // Schema format: [{ content: "..." }, { content: "..." }]
+          atomicIdeas = parsed.atomic_ideas
+            .filter((idea) => idea && idea.content)
+            .map((idea) => idea.content);
+
+          logger.info('[OpenAIClient] ✅ Extracted atomic_ideas from JSON response', {
+            count: atomicIdeas.length,
+            ideas: atomicIdeas,
+            hasResponse: !!parsed.response,
+            responseLength: parsed.response ? parsed.response.length : 0,
+          });
+
+          if (atomicIdeas.length > 0) {
+            // Return object with both response content and atomic_ideas
+            return {
+              content: parsed.response || message.content,
+              atomic_ideas: atomicIdeas,
+            };
+          }
+        }
+
+        if (!atomicIdeas) {
+          logger.debug('[OpenAIClient] JSON parsed but no atomic_ideas found or empty', {
+            keys: Object.keys(parsed),
+            hasAtomicIdeas: !!parsed.atomic_ideas,
+            atomicIdeasLength: parsed.atomic_ideas ? parsed.atomic_ideas.length : 0,
+          });
+        }
+      } catch (err) {
+        // Not a JSON response or failed to parse, use as-is
+        logger.debug('[OpenAIClient] Response is not JSON or parsing failed', {
+          error: err.message,
+          contentPreview: message.content.slice(0, 50),
+        });
+      }
+
+      logger.debug('[OpenAIClient] Returning message without atomic_ideas');
       return message.content;
     } catch (err) {
       if (

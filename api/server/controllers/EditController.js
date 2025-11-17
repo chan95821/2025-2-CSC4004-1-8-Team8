@@ -128,6 +128,9 @@ const EditController = async (req, res, next, initializeClient) => {
       },
     });
 
+    // Extract atomic_ideas if present (BaseClient에서 이미 처리됨)
+    const atomicIdeas = response.atomic_ideas;
+
     const { conversation = {} } = await client.responsePromise;
     conversation.title =
       conversation && !conversation.title ? null : conversation?.title || 'New Chat';
@@ -144,6 +147,12 @@ const EditController = async (req, res, next, initializeClient) => {
         requestMessage: userMessage,
         responseMessage: response,
       });
+
+      // Send atomic_ideas as a separate SSE event if available
+      if (atomicIdeas) {
+        sendMessage(res, atomicIdeas, 'atomic_ideas', response.messageId);
+      }
+
       res.end();
 
       await saveMessage(

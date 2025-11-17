@@ -15,16 +15,34 @@ const handleError = (res, message) => {
 };
 
 /**
- * Sends message data in Server Sent Events format.
- * @param {Express.Response} res - - The server response.
- * @param {string | Object} message - The message to be sent.
- * @param {'message' | 'error' | 'cancel'} event - [Optional] The type of event. Default is 'message'.
+ * Sends data in Server Sent Events format.
+ * Supports multiple event types: message, atomic_ideas, error, cancel.
+ * @param {Express.Response} res - The server response.
+ * @param {string | Object | Array} message - The message to be sent.
+ * @param {'message' | 'atomic_ideas' | 'error' | 'cancel'} event - [Optional] The type of event. Default is 'message'.
+ * @param {string} [messageId] - [Optional] The message ID for reference (used for atomic_ideas event).
  */
-const sendMessage = (res, message, event = 'message') => {
+const sendMessage = (res, message, event = 'message', messageId = null) => {
+  // Handle empty string messages
   if (typeof message === 'string' && message.length === 0) {
     return;
   }
-  res.write(`event: ${event}\ndata: ${JSON.stringify(message)}\n\n`);
+
+  let payload = message;
+
+  // For atomic_ideas event, wrap data with metadata
+  if (event === 'atomic_ideas') {
+    if (!Array.isArray(message) || message.length === 0) {
+      return;
+    }
+    payload = {
+      atomic_ideas: message,
+      messageId,
+      timestamp: Date.now(),
+    };
+  }
+
+  res.write(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`);
 };
 
 /**

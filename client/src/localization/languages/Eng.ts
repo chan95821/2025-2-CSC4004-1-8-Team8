@@ -118,6 +118,10 @@ export default {
   com_ui_no_changes: 'No changes to update',
   com_ui_date_today: 'Today',
   com_ui_date_yesterday: 'Yesterday',
+  // Knowledge UI
+  com_sidepanel_knowledge_graph: 'Knowledge Graph',
+  com_sidepanel_candidates: 'Candidate Nodes',
+  com_sidepanel_move_to_graph: 'Move to graph',
   com_ui_date_previous_7_days: 'Previous 7 days',
   com_ui_date_previous_30_days: 'Previous 30 days',
   com_ui_date_january: 'January',

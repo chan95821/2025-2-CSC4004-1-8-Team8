@@ -78,8 +78,15 @@ const SidePanel = ({
 
   const defaultActive = useMemo(() => {
     const activePanel = localStorage.getItem('side:active-panel');
-    return typeof activePanel === 'string' ? activePanel : undefined;
-  }, []);
+    if (typeof activePanel === 'string') {
+      return activePanel;
+    }
+    // Fallback to knowledge graph on first load when enabled
+    if ((interfaceConfig as any)?.knowledgeGraph === true) {
+      return 'knowledge-graph';
+    }
+    return undefined;
+  }, [interfaceConfig]);
 
   const endpointType = useMemo(
     () => getEndpointField(endpointsConfig, endpoint, 'type'),
@@ -261,7 +268,7 @@ const SidePanel = ({
               : 'opacity-100',
           )}
         >
-          {interfaceConfig.modelSelect && (
+          {false && interfaceConfig.modelSelect && (
             <div
               className={cn(
                 'sticky left-0 right-0 top-0 z-[100] flex h-[52px] flex-wrap items-center justify-center bg-background',

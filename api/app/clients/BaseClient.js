@@ -588,7 +588,14 @@ class BaseClient {
       ...(this.metadata ?? {}),
     };
 
-    if (typeof completion === 'string') {
+    // Handle completion with or without atomic_ideas
+    if (typeof completion === 'object' && completion !== null && 'content' in completion) {
+      // completion is {content, atomic_ideas}
+      responseMessage.text = addSpaceIfNeeded(generation) + completion.content;
+      if (completion.atomic_ideas) {
+        responseMessage.atomic_ideas = completion.atomic_ideas;
+      }
+    } else if (typeof completion === 'string') {
       responseMessage.text = addSpaceIfNeeded(generation) + completion;
     } else if (
       Array.isArray(completion) &&
@@ -621,7 +628,22 @@ class BaseClient {
         await this.updateUserMessageTokenCount({ usage, tokenCountMap, userMessage, opts });
       } else {
         responseMessage.tokenCount = this.getTokenCountForResponse(responseMessage);
-        completionTokens = this.getTokenCount(completion);
+        
+        // Extract string from completion before token counting
+        let completionText = '';
+        if (typeof completion === 'string') {
+          completionText = completion;
+        } else if (typeof completion === 'object' && completion !== null) {
+          if ('content' in completion) {
+            // completion is {content, atomic_ideas}
+            completionText = completion.content || '';
+          } else if (Array.isArray(completion)) {
+            // completion is an array
+            completionText = completion.join('');
+          }
+        }
+        
+        completionTokens = this.getTokenCount(completionText);
       }
 
       await this.recordTokenUsage({ promptTokens, completionTokens, usage });

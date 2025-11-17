@@ -544,6 +544,36 @@ export type TVectorStore = {
 
 export type TThread = { id: string; createdAt: string };
 
+export type TKnowledgeNode = {
+  content: string;
+  label?: string[];
+  x?: number | null;
+  y?: number | null;
+  source_message_id?: string;
+  source_conversation_id?: string;
+  id?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  isCurated?: boolean;
+};
+
+export type TKnowledgeEdge = {
+  source: string;
+  target: string;
+  label?: string[];
+  id?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type TKGraph = {
+  userId: string;
+  nodes?: TKnowledgeNode[];
+  edges?: TKnowledgeEdge[];
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 declare global {
   interface Window {
     google_tag_manager?: unknown;

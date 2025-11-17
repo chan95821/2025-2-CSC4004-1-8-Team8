@@ -18,6 +18,8 @@ const base = { message: true, initial: true };
 const createOnProgress = ({ generation = '', onProgress: _onProgress }) => {
   let i = 0;
   let tokens = addSpaceIfNeeded(generation);
+  let atomicIdeasBuffer = null;
+  let _messageIdRef = null;
 
   const basePayload = Object.assign({}, base, { text: tokens || '' });
 
@@ -45,6 +47,30 @@ const createOnProgress = ({ generation = '', onProgress: _onProgress }) => {
     i++;
   };
 
+  /**
+   * Sends atomic ideas as a separate SSE event
+   * Called after streaming completes to send decomposed concepts
+   */
+  const sendAtomicIdeasMessage = (res, atomicIdeas, messageId) => {
+    if (atomicIdeas && Array.isArray(atomicIdeas) && atomicIdeas.length > 0) {
+      sendMessage(res, atomicIdeas, 'atomic_ideas', messageId);
+      atomicIdeasBuffer = atomicIdeas;
+      _messageIdRef = messageId;
+    }
+  };
+
+  /**
+   * Handle atomic_ideas from streaming response
+   * Called during stream when JSON is parsed and atomic_ideas are extracted
+   */
+  const onAtomicIdeasReceived = (atomicIdeas, res, messageId) => {
+    atomicIdeasBuffer = atomicIdeas;
+    _messageIdRef = messageId;
+    if (res && typeof res.headersSent !== 'undefined' && !res.headersSent) {
+      sendMessage(res, atomicIdeas, 'atomic_ideas', messageId);
+    }
+  };
+
   const onProgress = (opts) => {
     return partialRight(progressCallback, opts);
   };
@@ -53,7 +79,18 @@ const createOnProgress = ({ generation = '', onProgress: _onProgress }) => {
     return basePayload.text;
   };
 
-  return { onProgress, getPartialText, sendIntermediateMessage };
+  const getAtomicIdeas = () => {
+    return atomicIdeasBuffer;
+  };
+
+  return {
+    onProgress,
+    getPartialText,
+    sendIntermediateMessage,
+    sendAtomicIdeasMessage,
+    onAtomicIdeasReceived,
+    getAtomicIdeas,
+  };
 };
 
 const handleText = async (response, bing = false) => {

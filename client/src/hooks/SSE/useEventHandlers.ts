@@ -18,7 +18,7 @@ import type {
   ConversationData,
 } from 'librechat-data-provider';
 import type { SetterOrUpdater, Resetter } from 'recoil';
-import type { TResData, TFinalResData, ConvoGenerator } from '~/common';
+import type { TResData, TFinalResData, ConvoGenerator, TKnowledgeNode } from '~/common';
 import type { TGenTitleMutation } from '~/data-provider';
 import {
   scrollToEnd,
@@ -377,6 +377,23 @@ export default function useEventHandlers({
       announcePolite({
         message: getAllContentText(responseMessage),
       });
+
+      /* Extract nodes from responseMessage if available */
+      if (responseMessage && typeof responseMessage === 'object' && 'nodes' in responseMessage) {
+        const nodesValue = (responseMessage as { nodes?: TKnowledgeNode[] }).nodes;
+        if (Array.isArray(nodesValue) && nodesValue.length > 0) {
+          console.log('🧠 [finalHandler] Nodes extracted from responseMessage:', {
+            messageId: responseMessage.messageId,
+            count: nodesValue.length,
+            nodes: nodesValue.map((node) => ({
+              id: node.id,
+              content: node.content,
+              isCurated: node.isCurated,
+              createdAt: node.createdAt,
+            })),
+          });
+        }
+      }
 
       /* Update messages; if assistants endpoint, client doesn't receive responseMessage */
       if (runMessages) {

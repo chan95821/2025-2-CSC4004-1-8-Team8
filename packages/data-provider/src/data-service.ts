@@ -710,3 +710,20 @@ export function acceptTerms(): Promise<t.TAcceptTermsResponse> {
 export function getBanner(): Promise<t.TBannerResponse> {
   return request.get(endpoints.banner());
 }
+
+/* Knowledge Graph (kgraphs) */
+export function getKGraph(): Promise<any> {
+  return request.get(endpoints.kgraphs());
+}
+
+export function createKGraphNode(payload: any): Promise<any> {
+  return request.post(`${endpoints.kgraphs()}/nodes`, payload);
+}
+
+export function deleteKGraphNodes(nodeIds: string[]): Promise<void> {
+  return request.post(`${endpoints.kgraphs()}/nodes/delete`, { nodeIds });
+}
+
+export function createKGraphEdge(payload: any): Promise<any> {
+  return request.post(`${endpoints.kgraphs()}/edges`, payload);
+}

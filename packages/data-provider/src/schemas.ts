@@ -434,6 +434,42 @@ export const tAgentOptionsSchema = z.object({
   temperature: z.number().default(agentOptionSettings.temperature.default),
 });
 
+/* Knowledge Graph Schemas */
+export const tKnowledgeNodeSchema = z.object({
+  content: z.string(),
+  label: z.array(z.string()).optional().default([]),
+  x: z.number().nullable().optional(),
+  y: z.number().nullable().optional(),
+  source_message_id: z.string().optional(),
+  source_conversation_id: z.string().optional(),
+  id: z.string().optional(), // Mongoose _id converted to string
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+});
+
+export type TKnowledgeNode = z.infer<typeof tKnowledgeNodeSchema>;
+
+export const tKnowledgeEdgeSchema = z.object({
+  source: z.string(),
+  target: z.string(),
+  label: z.array(z.string()).optional().default([]),
+  id: z.string().optional(), // Mongoose _id converted to string
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+});
+
+export type TKnowledgeEdge = z.infer<typeof tKnowledgeEdgeSchema>;
+
+export const tKGraphSchema = z.object({
+  userId: z.string(),
+  nodes: z.array(tKnowledgeNodeSchema).optional().default([]),
+  edges: z.array(tKnowledgeEdgeSchema).optional().default([]),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+});
+
+export type TKGraph = z.infer<typeof tKGraphSchema>;
+
 export const tMessageSchema = z.object({
   messageId: z.string(),
   endpoint: z.string().optional(),
@@ -467,6 +503,9 @@ export const tMessageSchema = z.object({
   thread_id: z.string().optional(),
   /* frontend components */
   iconURL: z.string().optional(),
+  /* knowledge graph */
+  nodes: z.array(tKnowledgeNodeSchema).optional(),
+  isImported: z.boolean().optional(),
 });
 
 export type TAttachmentMetadata = { messageId: string; toolCallId: string };
@@ -485,6 +524,8 @@ export type TMessage = z.input<typeof tMessageSchema> & {
   depth?: number;
   siblingIndex?: number;
   attachments?: TAttachment[];
+  nodes?: TKnowledgeNode[];
+  isImported?: boolean;
 };
 
 export const coerceNumber = z.union([z.number(), z.string()]).transform((val) => {

@@ -32,6 +32,8 @@ const Session = require('./Session');
 const Balance = require('./Balance');
 const User = require('./User');
 const Key = require('./Key');
+// 수정 후 (kGraph.js에서 export된 모든 것을 kGraphModule로 가져옴)
+const kGraphModule = require('./kGraph'); // { KGraph, getGraph, ... }
 
 module.exports = {
   comparePassword,
@@ -73,8 +75,12 @@ module.exports = {
   updateToken,
   deleteTokens,
 
+  // Kgraph (대문자) 관련 export 모두 삭제
+
   User,
   Key,
   Session,
   Balance,
+  KGraph: kGraphModule.KGraph, // 다른 라우터가 KGraph 모델을 찾을 수 있도록 함
+  kGraph: kGraphModule,
 };
