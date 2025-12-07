@@ -22,7 +22,7 @@ const PresetsMenu: FC = () => {
   const { preset } = useChatContext();
 
   const presets = presetsQuery.data || [];
-  return (
+  return null; /*(
     <Root>
       <Trigger asChild>
         <TooltipAnchor
@@ -67,7 +67,7 @@ const PresetsMenu: FC = () => {
       </Portal>
       {preset && <EditPresetDialog submitPreset={submitPreset} exportPreset={exportPreset} />}
     </Root>
-  );
+  );*/
 };
 
 export default PresetsMenu;

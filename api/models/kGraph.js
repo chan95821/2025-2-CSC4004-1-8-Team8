@@ -817,11 +817,16 @@ const getRecommendations = async (userId, method, params) => {
 
     const recommendations = await strategy(userId, params);
 
+    // Graph에 존재하는 노드만 필터링
+    const graph = await getOrCreateGraphDoc(userId);
+    const nodeIdSet = new Set(graph.nodes.map((n) => n._id.toString()));
+    const filtered = (recommendations || []).filter((id) => nodeIdSet.has(String(id)));
+
     logger.info(
-      `[KGraph] Recommendations retrieved (userId: ${userId}, method: ${method}, count: ${recommendations.length})`,
+      `[KGraph] Recommendations retrieved (userId: ${userId}, method: ${method}, count: ${filtered.length}/${recommendations.length})`,
     );
 
-    return recommendations;
+    return filtered;
   } catch (error) {
     logger.error(`[KGraph] Error in getRecommendations (userId: ${userId}, method: ${method})`, {
       message: error?.message,

@@ -66,7 +66,7 @@ export default function HeaderOptions({
     : () => setShowPopover((prev) => !prev);
 
   const paramEndpoint = isParamEndpoint(endpoint, endpointType);
-  return (
+  return null; /* (
     <Root
       open={showPopover}
       // onOpenChange={} //  called when the open state of the popover changes.
@@ -139,5 +139,5 @@ export default function HeaderOptions({
         </div>
       </Anchor>
     </Root>
-  );
+  );*/
 }

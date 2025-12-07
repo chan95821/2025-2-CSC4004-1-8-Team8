@@ -60,7 +60,7 @@ export default function ExportAndShareMenu({
     },
   ];
 
-  return (
+  return null; /*(
     <>
       <DropdownPopup
         menuId={menuId}
@@ -95,5 +95,5 @@ export default function ExportAndShareMenu({
         />
       )}
     </>
-  );
+  );*/
 }

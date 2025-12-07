@@ -62,7 +62,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
     statusText = invalidText ?? localize('com_ui_upload_invalid');
   }
 
-  return (
+  return null; /*(
     <label
       htmlFor={`file-upload-${id}`}
       className={cn(
@@ -82,7 +82,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
         onChange={handleFileChange}
       />
     </label>
-  );
+  );*/
 };
 
 export default FileUpload;

@@ -17,7 +17,7 @@ const AttachFile = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const isUploadDisabled = disabled ?? false;
 
-  return (
+  return null; /*(
     <FileUpload ref={inputRef} handleFileChange={handleFileChange}>
       <TooltipAnchor
         role="button"
@@ -51,7 +51,7 @@ const AttachFile = ({
         </div>
       </TooltipAnchor>
     </FileUpload>
-  );
+  );*/
 };
 
 export default React.memo(AttachFile);

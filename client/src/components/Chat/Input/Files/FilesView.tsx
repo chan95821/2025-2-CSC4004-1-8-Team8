@@ -17,7 +17,7 @@ export default function Files({ open, onOpenChange }) {
       }),
   });
 
-  return (
+  return null; /*(
     <OGDialog open={open} onOpenChange={onOpenChange}>
       <OGDialogContent
         title={localize('com_nav_my_files')}
@@ -29,5 +29,5 @@ export default function Files({ open, onOpenChange }) {
         <DataTable columns={columns} data={files} />
       </OGDialogContent>
     </OGDialog>
-  );
+  );*/
 }

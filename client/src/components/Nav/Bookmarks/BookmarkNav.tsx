@@ -33,7 +33,7 @@ const BookmarkNav: FC<BookmarkNavProps> = ({ tags, setTags, isSmallScreen }: Boo
     conversation = activeConvo;
   }
 
-  return (
+  return null; /*(
     <Menu as="div" className="group relative">
       {({ open }) => (
         <>
@@ -75,7 +75,7 @@ const BookmarkNav: FC<BookmarkNavProps> = ({ tags, setTags, isSmallScreen }: Boo
         </>
       )}
     </Menu>
-  );
+  );*/
 };
 
 export default BookmarkNav;

@@ -92,7 +92,7 @@ const BookmarkMenu: FC = () => {
 
   const handleToggleOpen = () => setOpen(!open);
 
-  return (
+  return null; /*(
     <>
       <Menu as="div" className="group relative">
         {({ open }) => (
@@ -131,7 +131,7 @@ const BookmarkMenu: FC = () => {
         setOpen={setOpen}
       />
     </>
-  );
+  );*/
 };
 
 export default BookmarkMenu;

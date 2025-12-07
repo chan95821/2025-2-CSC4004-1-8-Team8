@@ -136,8 +136,8 @@ const ChatForm = ({ index = 0 }) => {
 
   const uploadActive = endpointSupportsFiles && !isUploadDisabled;
   const speechClass = isRTL
-    ? `pr-${uploadActive ? '12' : '4'} pl-12`
-    : `pl-${uploadActive ? '12' : '4'} pr-12`;
+    ? `pr-${uploadActive ? '6' : '4'} pl-6`
+    : `pl-${uploadActive ? '6' : '4'} pr-6`;
 
   return (
     <form

@@ -19,12 +19,12 @@ export const ThemeSelector = ({
   const localize = useLocalize();
 
   const themeOptions = [
-    { value: 'system', label: localize('com_nav_theme_system') },
+    //{ value: 'system', label: localize('com_nav_theme_system') },
     { value: 'dark', label: localize('com_nav_theme_dark') },
-    { value: 'light', label: localize('com_nav_theme_light') },
+    //{ value: 'light', label: localize('com_nav_theme_light') },
   ];
 
-  return (
+  return null; /*(
     <div className="flex items-center justify-between">
       <div>{localize('com_nav_theme')}</div>
 
@@ -36,7 +36,7 @@ export const ThemeSelector = ({
         testId="theme-selector"
       />
     </div>
-  );
+  );*/
 };
 
 export const LangSelector = ({
@@ -116,9 +116,9 @@ function General() {
 
   return (
     <div className="flex flex-col gap-3 p-1 text-sm text-text-primary">
-      <div className="pb-3">
+      {/*<div className="pb-3">
         <ThemeSelector theme={theme} onChange={changeTheme} />
-      </div>
+      </div>*/}
       <div className="pb-3">
         <LangSelector langcode={langcode} onChange={changeLang} />
       </div>

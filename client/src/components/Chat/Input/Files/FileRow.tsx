@@ -76,7 +76,7 @@ export default function FileRow({
     // Inline style for RTL
     const rowStyle = isRTL ? { display: 'flex', flexDirection: 'row-reverse' } : {};
 
-    return (
+    return null; /*(
       <div style={rowStyle as React.CSSProperties}>
         {files
           .reduce(
@@ -111,11 +111,11 @@ export default function FileRow({
             return <FileContainer key={index} file={file} onDelete={handleDelete} />;
           })}
       </div>
-    );
+    );*/
   };
 
   if (Wrapper) {
-    return <Wrapper>{renderFiles()}</Wrapper>;
+    return null; /*<Wrapper>{renderFiles()}</Wrapper>;*/
   }
 
   return renderFiles();

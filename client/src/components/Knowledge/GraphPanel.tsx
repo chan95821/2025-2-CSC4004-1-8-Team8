@@ -31,6 +31,7 @@ const DEFAULT_EDGE_LABELS = [
   '목표-과제',
   '조건-결론',
   '구성-구성요소',
+  '평행/동시 진행',
   '사례-참고',
   '대안-선택지',
   '유사/연관',
@@ -95,13 +96,18 @@ export default function GraphPanel() {
   const [recoLoading, setRecoLoading] = useState(false);
   const [recoIds, setRecoIds] = useState<string[]>([]);
   const [recoRequested, setRecoRequested] = useState(false);
-  const [recoMethod, setRecoMethod] = useState<'synonyms' | 'edge_analogy'>('synonyms');
+  const [recoMethod, setRecoMethod] = useState<'synonyms' | 'edge_analogy' | 'least_similar'>(
+    'synonyms',
+  );
   const [edgeLabelInput, setEdgeLabelInput] = useState('');
   const [connectingRecoId, setConnectingRecoId] = useState<string | null>(null);
   const [recoNotice, setRecoNotice] = useState<{
     type: 'error' | 'success' | 'info';
     text: string;
   } | null>(null);
+  const [labelModalOpen, setLabelModalOpen] = useState(false);
+  const [labelModalValue, setLabelModalValue] = useState('');
+  const [pendingConnection, setPendingConnection] = useState<Connection | null>(null);
 
   // 서버 응답 엣지를 ReactFlow용으로 정규화
   const normalizeEdge = useCallback((raw: any) => {
@@ -120,7 +126,10 @@ export default function GraphPanel() {
     return recoIds.map((id) => {
       const node = map.get(id);
       const label =
-        (node?.labels?.[0] || '').trim() || (node?.content || '').slice(0, 50) || '제목 없음';
+        (node?.labels?.[0] || '').trim() ||
+        (node?.label || '').trim() ||
+        (node?.content || node?.idea_text || '').slice(0, 50) ||
+        id || '제목 없음';
       return { id, label };
     });
   }, [nodes, recoIds]);
@@ -330,29 +339,13 @@ export default function GraphPanel() {
 
   const onConnect = useCallback(
     async (connection: Connection) => {
-      if (!connection.source || !connection.target) {
-        return;
-      }
-      setError(null);
-      try {
-        const labelInput =
-          window.prompt('관계 라벨을 입력하세요 (예: 원인-결과, 문제-해결)', '관계') || '';
-        const labels = parseLabels(labelInput);
-        const label = labels.length > 1 ? labels : labels[0] || undefined;
-        const newEdge = await createGraphEdge({
-          source: connection.source,
-          target: connection.target,
-          label,
-        });
-        setEdges((prev) => [...prev, normalizeEdge(newEdge)]);
-        setGraphVersion((v) => v + 1);
-        // 서버 상태와 동기화해 즉시 반영
-        await loadGraph();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to create edge');
-      }
+      if (!connection.source || !connection.target) return;
+      // 모달 열어서 라벨 입력/선택 받기
+      setPendingConnection(connection);
+      setLabelModalValue(edgeLabelInput || edgeLabelSuggestions[0] || '');
+      setLabelModalOpen(true);
     },
-    [loadGraph, normalizeEdge, parseLabels, setEdges],
+    [edgeLabelInput, edgeLabelSuggestions, setEdges, parseLabels],
   );
 
   const onSelectionChange = useCallback(({ nodes: rfNodes = [], edges: rfEdges = [] }) => {
@@ -610,6 +603,88 @@ export default function GraphPanel() {
         )}
       </div>
 
+      {/* 추가 모드 안내 */}
+      <div className="rounded-md border border-border-light bg-surface-secondary p-3">
+        <div className="mb-2 text-sm font-semibold text-text-primary">추가 모드</div>
+        <div className="flex flex-wrap gap-2 text-xs text-text-secondary">
+          <span className="rounded border border-border-light bg-background px-2 py-1">
+            Pre-mortem 모드
+          </span>
+          <span className="rounded border border-border-light bg-background px-2 py-1">
+            악마의 대변인 모드
+          </span>
+          <span className="rounded border border-border-light bg-background px-2 py-1">
+            가상 페르소나 모드
+          </span>
+        </div>
+      </div>
+
+      {/* 라벨 입력 모달 (수동 연결용) */}
+      {labelModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-80 max-w-[90vw] rounded-md border border-border-light bg-surface-secondary p-4 shadow-lg">
+            <div className="mb-2 text-sm font-semibold text-text-primary">관계 라벨 입력</div>
+            <input
+              className="mb-2 w-full rounded border border-border-light bg-background px-3 py-2 text-sm text-text-primary outline-none focus:border-accent"
+              placeholder="예: 원인-결과"
+              value={labelModalValue}
+              onChange={(e) => setLabelModalValue(e.target.value)}
+            />
+            <div className="mb-3 flex flex-wrap gap-1">
+              {edgeLabelSuggestions.slice(0, 6).map((label) => (
+                <button
+                  key={label}
+                  type="button"
+                  className="rounded border border-border-light bg-background px-2 py-1 text-[10px] text-text-secondary hover:border-accent"
+                  onClick={() => setLabelModalValue(label)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={() => setLabelModalOpen(false)}>
+                취소
+              </Button>
+              <Button
+                size="sm"
+                onClick={async () => {
+                  const conn = pendingConnection;
+                  const labelText = labelModalValue.trim();
+                  if (!conn || !conn.source || !conn.target) {
+                    setLabelModalOpen(false);
+                    return;
+                  }
+                  if (!labelText) {
+                    setRecoNotice({ type: 'error', text: '관계 라벨을 입력하세요.' });
+                    return;
+                  }
+                  try {
+                    const labels = parseLabels(labelText);
+                    const label = labels.length > 1 ? labels : labels[0] || undefined;
+                    const newEdge = await createGraphEdge({
+                      source: conn.source,
+                      target: conn.target,
+                      label,
+                    });
+                    setEdges((prev) => [...prev, normalizeEdge(newEdge)]);
+                    setGraphVersion((v) => v + 1);
+                    await loadGraph();
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : 'Failed to create edge');
+                  } finally {
+                    setPendingConnection(null);
+                    setLabelModalOpen(false);
+                  }
+                }}
+              >
+                연결
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 노드/추천 영역 */}
       <div className="grid gap-3 md:grid-cols-[1.1fr_1fr]">
         {/* 노드 편집 / 신규 작성 */}
@@ -718,10 +793,13 @@ export default function GraphPanel() {
             <select
               className="rounded border border-border-light bg-background px-2 py-1"
               value={recoMethod}
-              onChange={(e) => setRecoMethod(e.target.value as 'synonyms' | 'edge_analogy')}
+              onChange={(e) =>
+                setRecoMethod(e.target.value as 'synonyms' | 'edge_analogy' | 'least_similar')
+              }
             >
               <option value="synonyms">임베딩 유사도</option>
               <option value="edge_analogy">관계 유추</option>
+              <option value="least_similar">가장 덜 유사(그래프 기반)</option>
             </select>
             <span className="text-text-secondary">관계 라벨</span>
             <input

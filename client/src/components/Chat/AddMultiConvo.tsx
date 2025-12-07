@@ -34,7 +34,7 @@ function AddMultiConvo() {
     return null;
   }
 
-  return (
+  return null; /*(
     <TooltipAnchor
       id="add-multi-conversation-button"
       aria-label={localize('com_ui_add_multi_conversation')}
@@ -47,7 +47,7 @@ function AddMultiConvo() {
     >
       <PlusCircle size={16} aria-label="Plus Icon" />
     </TooltipAnchor>
-  );
+  );*/
 }
 
 export default AddMultiConvo;
