@@ -25,7 +25,7 @@ export default function useSubmitMessage(helpers?: { clearDraft?: () => void }) 
   const setActivePrompt = useSetRecoilState(store.activePromptByIndex(index));
 
   const submitMessage = useCallback(
-    (data?: { text: string }) => {
+    (data?: { text: string; tools?: string }) => {
       if (!data) {
         return console.warn('No data provided to submitMessage');
       }
@@ -47,6 +47,7 @@ export default function useSubmitMessage(helpers?: { clearDraft?: () => void }) 
       const rootIndex = addedIndex - 1;
       ask({
         text: data.text,
+        tools: data.tools,
         overrideConvoId: appendIndex(rootIndex, overrideConvoId),
         overrideUserMessageId: appendIndex(rootIndex, overrideUserMessageId),
       });
@@ -54,6 +55,7 @@ export default function useSubmitMessage(helpers?: { clearDraft?: () => void }) 
         askAdditional(
           {
             text: data.text,
+            tools: data.tools,
             overrideConvoId: appendIndex(addedIndex, overrideConvoId),
             overrideUserMessageId: appendIndex(addedIndex, overrideUserMessageId),
           },

@@ -14,6 +14,7 @@ import lang from './language';
 import settings from './settings';
 import banner from './banner';
 import * as knowledgeGraph from './knowledgeGraph';
+import toolMode from './toolMode';
 export default {
   ...artifacts,
   ...families,
@@ -31,4 +32,5 @@ export default {
   ...settings,
   ...banner,
   ...knowledgeGraph,
+  ...toolMode,
 };

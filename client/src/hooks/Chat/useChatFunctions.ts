@@ -69,6 +69,7 @@ export default function useChatFunctions({
   const ask: TAskFunction = (
     {
       text,
+      tools,
       overrideConvoId,
       overrideUserMessageId,
       parentMessageId = null,
@@ -181,6 +182,9 @@ export default function useChatFunctions({
       thread_id,
       error: false,
     };
+    if (tools) {
+      (currentMsg as any).tools = tools;
+    }
 
     const reuseFiles = (isRegenerate || resubmitFiles) && parentMessage?.files;
     if (setFiles && reuseFiles && parentMessage.files?.length) {

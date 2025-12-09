@@ -122,6 +122,13 @@ const ChatForm = ({ index = 0 }) => {
     },
   });
 
+  // tools 필드 등록 (모드 선택) - 글로벌 상태
+  const [selectedTool, setSelectedTool] = useRecoilState(store.toolMode);
+  useEffect(() => {
+    methods.register('tools');
+    methods.setValue('tools', selectedTool ?? '');
+  }, [methods, selectedTool]);
+
   useEffect(() => {
     if (!isSearching && textAreaRef.current && !disableInputs) {
       textAreaRef.current.focus();
@@ -141,7 +148,11 @@ const ChatForm = ({ index = 0 }) => {
 
   return (
     <form
-      onSubmit={methods.handleSubmit((data) => submitMessage(data))}
+      onSubmit={methods.handleSubmit((data) => {
+        const toolVal = selectedTool ?? '';
+        methods.setValue('tools', toolVal);
+        submitMessage({ ...data, tools: toolVal });
+      })}
       className="stretch mx-2 flex flex-row gap-3 last:mb-2 md:mx-4 md:last:mb-6 lg:mx-auto lg:max-w-2xl xl:max-w-3xl"
     >
       <div className="relative flex h-full flex-1 items-stretch md:flex-col">
@@ -164,61 +175,54 @@ const ChatForm = ({ index = 0 }) => {
             />
           )}
           <PromptsCommand index={index} textAreaRef={textAreaRef} submitPrompt={submitPrompt} />
-          <div className="transitional-all relative flex w-full flex-grow flex-col overflow-hidden rounded-3xl bg-surface-tertiary text-text-primary duration-200">
-            <TextareaHeader addedConvo={addedConvo} setAddedConvo={setAddedConvo} />
-            <FileFormWrapper disableInputs={disableInputs}>
-              {endpoint && (
-                <TextareaAutosize
-                  {...registerProps}
-                  ref={(e) => {
-                    ref(e);
-                    textAreaRef.current = e;
-                  }}
-                  disabled={disableInputs}
-                  onPaste={handlePaste}
-                  onKeyDown={handleKeyDown}
-                  onKeyUp={handleKeyUp}
-                  onCompositionStart={handleCompositionStart}
-                  onCompositionEnd={handleCompositionEnd}
-                  id={mainTextareaId}
-                  tabIndex={0}
-                  data-testid="text-input"
-                  style={{ height: 44, overflowY: 'auto' }}
-                  rows={1}
-                  className={cn(baseClasses, speechClass, removeFocusRings)}
-                />
-              )}
-            </FileFormWrapper>
-            {SpeechToText && (
-              <AudioRecorder
-                disabled={!!disableInputs}
-                textAreaRef={textAreaRef}
-                ask={submitMessage}
-                isRTL={isRTL}
-                methods={methods}
+        </div>
+
+        <div className="transitional-all relative flex w-full flex-grow flex-col overflow-hidden rounded-3xl bg-surface-tertiary text-text-primary duration-200">
+          <TextareaHeader addedConvo={addedConvo} setAddedConvo={setAddedConvo} />
+          <FileFormWrapper disableInputs={disableInputs}>
+            {endpoint && (
+              <TextareaAutosize
+                {...registerProps}
+                ref={(e) => {
+                  ref(e);
+                  textAreaRef.current = e;
+                }}
+                disabled={disableInputs}
+                onPaste={handlePaste}
+                onKeyDown={handleKeyDown}
+                onKeyUp={handleKeyUp}
+                onCompositionStart={handleCompositionStart}
+                onCompositionEnd={handleCompositionEnd}
+                id={mainTextareaId}
+                tabIndex={0}
+                data-testid="text-input"
+                style={{ height: 44, overflowY: 'auto' }}
+                rows={1}
+                className={cn(baseClasses, speechClass, removeFocusRings)}
               />
             )}
-            {TextToSpeech && automaticPlayback && <StreamAudio index={index} />}
-          </div>
-          <div
-            className={cn(
-              'mb-[5px] ml-[8px] flex flex-col items-end justify-end',
-              isRTL && 'order-first mr-[8px]',
-            )}
-            style={{ alignSelf: 'flex-end' }}
-          >
-            {(isSubmitting || isSubmittingAdded) && (showStopButton || showStopAdded) ? (
-              <StopButton stop={handleStopGenerating} setShowStopButton={setShowStopButton} />
-            ) : (
-              endpoint && (
-                <SendButton
-                  ref={submitButtonRef}
-                  control={methods.control}
-                  disabled={!!(filesLoading || isSubmitting || disableInputs)}
-                />
-              )
-            )}
-          </div>
+          </FileFormWrapper>
+          {TextToSpeech && automaticPlayback && <StreamAudio index={index} />}
+        </div>
+
+        <div
+          className={cn(
+            'mb-[5px] ml-[8px] flex flex-col items-end justify-end',
+            isRTL && 'order-first mr-[8px]',
+          )}
+          style={{ alignSelf: 'flex-end' }}
+        >
+          {(isSubmitting || isSubmittingAdded) && (showStopButton || showStopAdded) ? (
+            <StopButton stop={handleStopGenerating} setShowStopButton={setShowStopButton} />
+          ) : (
+            endpoint && (
+              <SendButton
+                ref={submitButtonRef}
+                control={methods.control}
+                disabled={!!(filesLoading || isSubmitting || disableInputs)}
+              />
+            )
+          )}
         </div>
       </div>
     </form>

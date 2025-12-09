@@ -40,6 +40,48 @@ const DEFAULT_EDGE_LABELS = [
   '요구-지원',
 ];
 
+const RELATION_COLORS: Record<string, string> = {
+  '원인-결과': '#f97316',
+  '문제-해결': '#22c55e',
+  '필요-수단': '#6366f1',
+  '목표-과제': '#ec4899',
+  '조건-결론': '#0ea5e9',
+  '구성-구성요소': '#eab308',
+  '평행/동시 진행': '#8b5cf6',
+  '사례-참고': '#10b981',
+  '대안-선택지': '#ef4444',
+  '유사/연관': '#0ea5e9',
+  '대비/충돌': '#f59e0b',
+  '선행-후행': '#94a3b8',
+  '요구-지원': '#d946ef',
+};
+
+const edgeColor = (labels?: string[]) =>
+  (labels?.[0] && RELATION_COLORS[labels[0]]) || '#9ca3af';
+
+// 겹침 완화: 일정 거리 이하로 붙은 노드들을 양쪽으로 살짝 밀어줌
+const spreadNodes = (items: GraphNode[], minDist = 90) => {
+  const nodes = items.map((n) => ({ ...n }));
+  for (let i = 0; i < nodes.length; i += 1) {
+    for (let j = i + 1; j < nodes.length; j += 1) {
+      const dx = nodes[i].x - nodes[j].x;
+      const dy = nodes[i].y - nodes[j].y;
+      const dist = Math.hypot(dx || 0.0001, dy || 0.0001);
+      if (dist < minDist) {
+        const shift = (minDist - dist) / 2;
+        const angle = Math.atan2(dy || Math.random() - 0.5, dx || Math.random() - 0.5);
+        const offsetX = Math.cos(angle) * shift;
+        const offsetY = Math.sin(angle) * shift;
+        nodes[i].x += offsetX;
+        nodes[i].y += offsetY;
+        nodes[j].x -= offsetX;
+        nodes[j].y -= offsetY;
+      }
+    }
+  }
+  return nodes;
+};
+
 const convoScope = (node: GraphNode, fallback = 'default') =>
   node.source_conversation_id ?? fallback;
 
@@ -117,9 +159,18 @@ export default function GraphPanel() {
       Array.isArray(edge.labels) && edge.labels.length
         ? edge.labels
         : edge.label
-          ? [edge.label]
-          : [];
-    return { ...edge, id, labels };
+        ? [edge.label]
+        : [];
+    const color = edgeColor(labels);
+    return {
+      ...edge,
+      id,
+      labels,
+      label: labels.length ? labels[0] : '',
+      style: { stroke: color, strokeWidth: 1.5, opacity: 0.95 },
+      labelStyle: { fill: color, fontSize: 11, fontWeight: 700 },
+      labelBgStyle: { fill: '#0f172a', fillOpacity: 0.8, rx: 4, ry: 4 },
+    };
   }, []);
   const recoItems = useMemo(() => {
     const map = new Map(nodes.map((n) => [n.id, n]));
@@ -129,7 +180,8 @@ export default function GraphPanel() {
         (node?.labels?.[0] || '').trim() ||
         (node?.label || '').trim() ||
         (node?.content || node?.idea_text || '').slice(0, 50) ||
-        id || '제목 없음';
+        id ||
+        '제목 없음';
       return { id, label };
     });
   }, [nodes, recoIds]);
@@ -167,7 +219,7 @@ export default function GraphPanel() {
     try {
       const data = await fetchKnowledgeGraph(showAll ? undefined : convoId);
       // 서버에서 이미 필터링(conversationId 없으면 전체 그래프)
-      setNodes(data.nodes);
+      setNodes(spreadNodes(data.nodes));
       setEdges(data.edges as any);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load knowledge graph');
@@ -237,6 +289,29 @@ export default function GraphPanel() {
   };
 
   const displayNodes: RFNode[] = useMemo(() => {
+    const palette = [
+      '#f472b6',
+      '#60a5fa',
+      '#34d399',
+      '#fbbf24',
+      '#a78bfa',
+      '#f87171',
+      '#38bdf8',
+      '#c084fc',
+      '#f59e0b',
+      '#4ade80',
+    ];
+    const convoColorMap = new Map<string, string>();
+    let colorIdx = 0;
+    const getConvoColor = (convoId?: string) => {
+      if (!convoId) return '#e2e8f0';
+      if (!convoColorMap.has(convoId)) {
+        convoColorMap.set(convoId, palette[colorIdx % palette.length]);
+        colorIdx += 1;
+      }
+      return convoColorMap.get(convoId) || '#e2e8f0';
+    };
+
     const gapX = 260;
     const gapY = 160;
     const used = new Map<string, number>();
@@ -256,11 +331,21 @@ export default function GraphPanel() {
       const hit = used.get(key) || 0;
       used.set(key, hit + 1);
       const offset = hit > 0 ? 30 * hit : 0; // 동일 좌표가 있을 때 살짝 비틀어 배치
+      const color = getConvoColor(node.source_conversation_id);
       return {
         id: node.id,
         data: { label: pickLabel(node, index) },
         position: { x: basePos.x + offset, y: basePos.y + offset },
         selected: selectedNodeIds.includes(node.id),
+        style: {
+          background: '#f8fafc',
+          border: `2px solid ${color}`,
+          color: '#0f172a',
+          borderRadius: 12,
+          boxShadow: '0 6px 14px rgba(0,0,0,0.18)',
+          fontWeight: 600,
+        },
+        className: 'shadow-lg',
       };
     });
   }, [nodes, selectedNodeIds]);
@@ -269,12 +354,16 @@ export default function GraphPanel() {
     () =>
       edges.map((edge) => {
         const labels = Array.isArray(edge.labels) ? edge.labels : edge.label ? [edge.label] : [];
+        const color = edgeColor(labels);
         return {
           id: edge.id,
           source: edge.source,
           target: edge.target,
           label: labels[0] || '',
-          animated: true,
+          animated: false,
+          style: { stroke: color, strokeWidth: 1.6, opacity: 0.95 },
+          labelStyle: { fill: color, fontSize: 11, fontWeight: 700 },
+          labelBgStyle: { fill: '#0b1020', fillOpacity: 0.8, rx: 4, ry: 4 },
           selected: selectedEdge?.id === edge.id,
         };
       }),
@@ -467,7 +556,7 @@ export default function GraphPanel() {
         target: selectedEdge.target,
         labels,
       });
-      setEdges((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+      setEdges((prev) => prev.map((e) => (e.id === updated.id ? normalizeEdge(updated) : e)));
     } catch (err) {
       setError(err instanceof Error ? err.message : '관계 라벨 저장 실패');
     } finally {
@@ -597,26 +686,14 @@ export default function GraphPanel() {
             onConnect={onConnect}
             onSelectionChange={onSelectionChange}
             fitView
+            proOptions={{ hideAttribution: true }}
+            style={{ background: '#0b1020' }}
+            minZoom={0.3}
+            maxZoom={2}
           >
-            <Background />
+            <Background color="#1f2937" gap={16} size={1} />
           </ReactFlow>
         )}
-      </div>
-
-      {/* 추가 모드 안내 */}
-      <div className="rounded-md border border-border-light bg-surface-secondary p-3">
-        <div className="mb-2 text-sm font-semibold text-text-primary">추가 모드</div>
-        <div className="flex flex-wrap gap-2 text-xs text-text-secondary">
-          <span className="rounded border border-border-light bg-background px-2 py-1">
-            Pre-mortem 모드
-          </span>
-          <span className="rounded border border-border-light bg-background px-2 py-1">
-            악마의 대변인 모드
-          </span>
-          <span className="rounded border border-border-light bg-background px-2 py-1">
-            가상 페르소나 모드
-          </span>
-        </div>
       </div>
 
       {/* 라벨 입력 모달 (수동 연결용) */}
